@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
+@RestController //  객체를 bean으로 등록하는 annotation
 @RequestMapping("/api")
 public class MemoController {
     private final MemoService memoService;
