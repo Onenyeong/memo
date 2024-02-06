@@ -1,4 +1,4 @@
-package com.sparta.myselectshop.entity;
+package com.sparta.memo.entity;
 
 public enum UserRoleEnum {
     USER(Authority.USER),  // 사용자 권한

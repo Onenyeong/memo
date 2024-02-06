@@ -9,46 +9,62 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-@Slf4j
+@Slf4j(topic = "JWT 검증 및 인가")
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserDetailsService userDetailsService;
+    private final UserDetailsServiceImpl userDetailsService;
 
-    public JwtAuthorizationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
+    public JwtAuthorizationFilter(JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException, IOException {
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain filterChain) throws ServletException, IOException {
 
-        String tokenValue = jwtUtil.getJwtFromHeader(request);
+        String tokenValue = jwtUtil.getJwtFromHeader(req);
 
-        if (StringUtils.hasText(tokenValue) && jwtUtil.validateToken(tokenValue)) {
+        if (StringUtils.hasText(tokenValue)) {
+
+            if (!jwtUtil.validateToken(tokenValue)) {
+                log.error("Token Error");
+                return;
+            }
+
             Claims info = jwtUtil.getUserInfoFromToken(tokenValue);
 
             try {
-                String username = info.getSubject();
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                if (userDetails != null) {
-                    Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+                setAuthentication(info.getSubject());
             } catch (Exception e) {
                 log.error(e.getMessage());
+                return;
             }
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(req, res);
+    }
+
+    // 인증 처리
+    public void setAuthentication(String username) {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        Authentication authentication = createAuthentication(username);
+        context.setAuthentication(authentication);
+
+        SecurityContextHolder.setContext(context);
+    }
+
+    // 인증 객체 생성
+    private Authentication createAuthentication(String username) {
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 }
